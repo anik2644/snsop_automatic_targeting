@@ -69,6 +69,26 @@ Response:
 
 **GET** `/health` — includes `assets_source`: path to the loaded joblib, or `"dummy"`.
 
+## Run with Docker
+
+From the `backend` directory:
+
+```bash
+docker compose up --build
+```
+
+The API will be available at:
+
+```text
+http://localhost:8040/health
+```
+
+The Compose service uses `restart: unless-stopped`, so Docker will keep the container alive and restart it if it exits. Stop it from another terminal with:
+
+```bash
+docker compose down
+```
+
 ## Run locally
 
 ### macOS/Linux
@@ -184,3 +204,4 @@ Legacy: if only `FEATURE_COLS` is present, it is copied to `feature_names`.
 | `ASSETS_PATH` | Full path to `support_type_model_assets.joblib` (overrides default search) |
 | `SUBGROUP_CLIP_MAX` | Per-column clip upper bound (default `10`) |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:4200`) |
+# snsop_automatic_targeting
