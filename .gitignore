@@ -43,9 +43,3 @@ dist/
 *.pkl
 *.pickle
 *.onnx
-models/*.joblib
-models/*.pkl
-models/*.pickle
-models/*.onnx
-!models/.gitkeep
-!models/README.md
