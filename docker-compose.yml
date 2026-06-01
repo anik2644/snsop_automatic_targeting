@@ -1,0 +1,18 @@
+services:
+  support-type-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: support-type-api
+    restart: unless-stopped
+    ports:
+      - "8040:8040"
+    environment:
+      CORS_ORIGINS: "*"
+      SUBGROUP_CLIP_MAX: "10"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

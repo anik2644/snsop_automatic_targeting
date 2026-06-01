@@ -69,6 +69,73 @@ Response:
 
 **GET** `/health` — includes `assets_source`: path to the loaded joblib, or `"dummy"`.
 
+**POST** `/get_support_type`
+
+Request body:
+
+```json
+{
+  "household": {
+    "male_0_2_normal": 0,
+    "male_0_2_disabled": 0,
+    "male_0_2_chronically_ill": 0,
+    "male_0_2_both": 0,
+    "male_3_5_normal": 0,
+    "male_3_5_disabled": 0,
+    "male_3_5_chronically_ill": 0,
+    "male_3_5_both": 0,
+    "male_6_17_normal": 1,
+    "male_6_17_disabled": 0,
+    "male_6_17_chronically_ill": 0,
+    "male_6_17_both": 0,
+    "male_18_35_normal": 1,
+    "male_18_35_disabled": 0,
+    "male_18_35_chronically_ill": 0,
+    "male_18_35_both": 0,
+    "male_36_64_normal": 0,
+    "male_36_64_disabled": 0,
+    "male_36_64_chronically_ill": 0,
+    "male_36_64_both": 0,
+    "male_65_plus_normal": 0,
+    "male_65_plus_disabled": 0,
+    "male_65_plus_chronically_ill": 0,
+    "male_65_plus_both": 0,
+    "female_0_2_normal": 0,
+    "female_0_2_disabled": 0,
+    "female_0_2_chronically_ill": 0,
+    "female_0_2_both": 0,
+    "female_3_5_normal": 1,
+    "female_3_5_disabled": 0,
+    "female_3_5_chronically_ill": 0,
+    "female_3_5_both": 0,
+    "female_6_17_normal": 0,
+    "female_6_17_disabled": 0,
+    "female_6_17_chronically_ill": 0,
+    "female_6_17_both": 0,
+    "female_18_35_normal": 1,
+    "female_18_35_disabled": 0,
+    "female_18_35_chronically_ill": 0,
+    "female_18_35_both": 0,
+    "female_36_64_normal": 0,
+    "female_36_64_disabled": 0,
+    "female_36_64_chronically_ill": 0,
+    "female_36_64_both": 0,
+    "female_65_plus_normal": 0,
+    "female_65_plus_disabled": 0,
+    "female_65_plus_chronically_ill": 0,
+    "female_65_plus_both": 0
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "support_type": "DIS"
+}
+```
+
 ## Run with Docker
 
 From the `backend` directory:
@@ -203,5 +270,5 @@ Legacy: if only `FEATURE_COLS` is present, it is copied to `feature_names`.
 |----------|---------|
 | `ASSETS_PATH` | Full path to `support_type_model_assets.joblib` (overrides default search) |
 | `SUBGROUP_CLIP_MAX` | Per-column clip upper bound (default `10`) |
-| `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:4200`) |
+| `CORS_ORIGINS` | Comma-separated allowed origins (default `*`, allows any origin) |
 # snsop_automatic_targeting

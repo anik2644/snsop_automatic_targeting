@@ -11,6 +11,8 @@ htmlcov/
 # Virtual environments
 .venv/
 venv/
+env/
+ENV/
 
 # Environment and local configuration
 .env
@@ -36,3 +38,14 @@ build/
 dist/
 *.egg-info/
 
+# Local model artifacts and large generated files
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+models/*.joblib
+models/*.pkl
+models/*.pickle
+models/*.onnx
+!models/.gitkeep
+!models/README.md

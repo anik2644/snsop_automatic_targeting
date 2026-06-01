@@ -35,7 +35,7 @@ import pandas as pd
 import shap
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
@@ -76,10 +76,135 @@ class SupportTypeResponse(BaseModel):
     top_features: list[FeatureContribution]
 
 
+class HouseholdCounts(BaseModel):
+    """Household member counts grouped by gender, age group, and condition."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    male_0_2_normal: int = Field(0, ge=0, description="Male children age 0-2 with no disability or chronic illness.")
+    male_0_2_disabled: int = Field(0, ge=0, description="Male children age 0-2 with a disability.")
+    male_0_2_chronically_ill: int = Field(0, ge=0, description="Male children age 0-2 with a chronic illness.")
+    male_0_2_both: int = Field(0, ge=0, description="Male children age 0-2 with both disability and chronic illness.")
+    male_3_5_normal: int = Field(0, ge=0, description="Male children age 3-5 with no disability or chronic illness.")
+    male_3_5_disabled: int = Field(0, ge=0, description="Male children age 3-5 with a disability.")
+    male_3_5_chronically_ill: int = Field(0, ge=0, description="Male children age 3-5 with a chronic illness.")
+    male_3_5_both: int = Field(0, ge=0, description="Male children age 3-5 with both disability and chronic illness.")
+    male_6_17_normal: int = Field(0, ge=0, description="Male children age 6-17 with no disability or chronic illness.")
+    male_6_17_disabled: int = Field(0, ge=0, description="Male children age 6-17 with a disability.")
+    male_6_17_chronically_ill: int = Field(0, ge=0, description="Male children age 6-17 with a chronic illness.")
+    male_6_17_both: int = Field(0, ge=0, description="Male children age 6-17 with both disability and chronic illness.")
+    male_18_35_normal: int = Field(0, ge=0, description="Male adults age 18-35 with no disability or chronic illness.")
+    male_18_35_disabled: int = Field(0, ge=0, description="Male adults age 18-35 with a disability.")
+    male_18_35_chronically_ill: int = Field(0, ge=0, description="Male adults age 18-35 with a chronic illness.")
+    male_18_35_both: int = Field(0, ge=0, description="Male adults age 18-35 with both disability and chronic illness.")
+    male_36_64_normal: int = Field(0, ge=0, description="Male adults age 36-64 with no disability or chronic illness.")
+    male_36_64_disabled: int = Field(0, ge=0, description="Male adults age 36-64 with a disability.")
+    male_36_64_chronically_ill: int = Field(0, ge=0, description="Male adults age 36-64 with a chronic illness.")
+    male_36_64_both: int = Field(0, ge=0, description="Male adults age 36-64 with both disability and chronic illness.")
+    male_65_plus_normal: int = Field(0, ge=0, description="Male adults age 65+ with no disability or chronic illness.")
+    male_65_plus_disabled: int = Field(0, ge=0, description="Male adults age 65+ with a disability.")
+    male_65_plus_chronically_ill: int = Field(0, ge=0, description="Male adults age 65+ with a chronic illness.")
+    male_65_plus_both: int = Field(0, ge=0, description="Male adults age 65+ with both disability and chronic illness.")
+    female_0_2_normal: int = Field(0, ge=0, description="Female children age 0-2 with no disability or chronic illness.")
+    female_0_2_disabled: int = Field(0, ge=0, description="Female children age 0-2 with a disability.")
+    female_0_2_chronically_ill: int = Field(0, ge=0, description="Female children age 0-2 with a chronic illness.")
+    female_0_2_both: int = Field(0, ge=0, description="Female children age 0-2 with both disability and chronic illness.")
+    female_3_5_normal: int = Field(0, ge=0, description="Female children age 3-5 with no disability or chronic illness.")
+    female_3_5_disabled: int = Field(0, ge=0, description="Female children age 3-5 with a disability.")
+    female_3_5_chronically_ill: int = Field(0, ge=0, description="Female children age 3-5 with a chronic illness.")
+    female_3_5_both: int = Field(0, ge=0, description="Female children age 3-5 with both disability and chronic illness.")
+    female_6_17_normal: int = Field(0, ge=0, description="Female children age 6-17 with no disability or chronic illness.")
+    female_6_17_disabled: int = Field(0, ge=0, description="Female children age 6-17 with a disability.")
+    female_6_17_chronically_ill: int = Field(0, ge=0, description="Female children age 6-17 with a chronic illness.")
+    female_6_17_both: int = Field(0, ge=0, description="Female children age 6-17 with both disability and chronic illness.")
+    female_18_35_normal: int = Field(0, ge=0, description="Female adults age 18-35 with no disability or chronic illness.")
+    female_18_35_disabled: int = Field(0, ge=0, description="Female adults age 18-35 with a disability.")
+    female_18_35_chronically_ill: int = Field(0, ge=0, description="Female adults age 18-35 with a chronic illness.")
+    female_18_35_both: int = Field(0, ge=0, description="Female adults age 18-35 with both disability and chronic illness.")
+    female_36_64_normal: int = Field(0, ge=0, description="Female adults age 36-64 with no disability or chronic illness.")
+    female_36_64_disabled: int = Field(0, ge=0, description="Female adults age 36-64 with a disability.")
+    female_36_64_chronically_ill: int = Field(0, ge=0, description="Female adults age 36-64 with a chronic illness.")
+    female_36_64_both: int = Field(0, ge=0, description="Female adults age 36-64 with both disability and chronic illness.")
+    female_65_plus_normal: int = Field(0, ge=0, description="Female adults age 65+ with no disability or chronic illness.")
+    female_65_plus_disabled: int = Field(0, ge=0, description="Female adults age 65+ with a disability.")
+    female_65_plus_chronically_ill: int = Field(0, ge=0, description="Female adults age 65+ with a chronic illness.")
+    female_65_plus_both: int = Field(0, ge=0, description="Female adults age 65+ with both disability and chronic illness.")
+
+
 class HouseholdRequest(BaseModel):
     """Flat household counters; missing keys default to 0."""
 
     household: dict[str, int] = Field(default_factory=dict)
+
+
+class GetSupportTypeRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "household": {
+                        "male_0_2_normal": 0,
+                        "male_0_2_disabled": 0,
+                        "male_0_2_chronically_ill": 0,
+                        "male_0_2_both": 0,
+                        "male_3_5_normal": 0,
+                        "male_3_5_disabled": 0,
+                        "male_3_5_chronically_ill": 0,
+                        "male_3_5_both": 0,
+                        "male_6_17_normal": 1,
+                        "male_6_17_disabled": 0,
+                        "male_6_17_chronically_ill": 0,
+                        "male_6_17_both": 0,
+                        "male_18_35_normal": 1,
+                        "male_18_35_disabled": 0,
+                        "male_18_35_chronically_ill": 0,
+                        "male_18_35_both": 0,
+                        "male_36_64_normal": 0,
+                        "male_36_64_disabled": 0,
+                        "male_36_64_chronically_ill": 0,
+                        "male_36_64_both": 0,
+                        "male_65_plus_normal": 0,
+                        "male_65_plus_disabled": 0,
+                        "male_65_plus_chronically_ill": 0,
+                        "male_65_plus_both": 0,
+                        "female_0_2_normal": 0,
+                        "female_0_2_disabled": 0,
+                        "female_0_2_chronically_ill": 0,
+                        "female_0_2_both": 0,
+                        "female_3_5_normal": 1,
+                        "female_3_5_disabled": 0,
+                        "female_3_5_chronically_ill": 0,
+                        "female_3_5_both": 0,
+                        "female_6_17_normal": 0,
+                        "female_6_17_disabled": 0,
+                        "female_6_17_chronically_ill": 0,
+                        "female_6_17_both": 0,
+                        "female_18_35_normal": 1,
+                        "female_18_35_disabled": 0,
+                        "female_18_35_chronically_ill": 0,
+                        "female_18_35_both": 0,
+                        "female_36_64_normal": 0,
+                        "female_36_64_disabled": 0,
+                        "female_36_64_chronically_ill": 0,
+                        "female_36_64_both": 0,
+                        "female_65_plus_normal": 0,
+                        "female_65_plus_disabled": 0,
+                        "female_65_plus_chronically_ill": 0,
+                        "female_65_plus_both": 0,
+                    }
+                }
+            ]
+        }
+    )
+
+    household: HouseholdCounts = Field(
+        default_factory=HouseholdCounts,
+        description="Counts of household members by gender, age group, and condition. Leave unknown groups as 0.",
+    )
+
+
+class GetSupportTypeResponse(BaseModel):
+    support_type: str = Field(..., description="Predicted support type label.")
 
 
 def _col_index_map(cols: list[str]) -> dict[str, int]:
@@ -244,18 +369,25 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Support type prediction", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:4200").split(","),
-    allow_credentials=True,
+    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-def _household_dataframe(req: HouseholdRequest) -> pd.DataFrame:
+def _household_payload(req: HouseholdRequest | GetSupportTypeRequest) -> dict[str, int]:
+    household = req.household or {}
+    if isinstance(household, BaseModel):
+        return household.model_dump()
+    return household
+
+
+def _household_dataframe(req: HouseholdRequest | GetSupportTypeRequest) -> pd.DataFrame:
     """
     Step 1–3 from your notebook: one dict -> DataFrame -> columns in model order -> clip.
     """
-    h = req.household or {}
+    h = _household_payload(req)
     names: list[str] = list(assets["feature_names"])
     row = {k: int(h.get(k, 0) or 0) for k in names}
     new_df = pd.DataFrame([row])
@@ -294,6 +426,14 @@ def _shap_vals_for_predicted_class(shap_values: Any, pred_class: int, n_features
         else:
             vec = np.pad(vec, (0, n_features - vec.size))
     return vec
+
+
+def _predict_support_type_label(req: HouseholdRequest | GetSupportTypeRequest) -> str:
+    model = assets["model"]
+    le: LabelEncoder = assets["label_encoder"]
+    df = _household_dataframe(req)
+    pred_class = int(model.predict(df)[0])
+    return str(le.inverse_transform([pred_class])[0])
 
 
 @app.get("/health")
@@ -335,3 +475,8 @@ def predict_support_type(req: HouseholdRequest) -> SupportTypeResponse:
         predicted_support_type=predicted_label,
         top_features=top_features,
     )
+
+
+@app.post("/get_support_type", response_model=GetSupportTypeResponse)
+def get_support_type(req: GetSupportTypeRequest) -> GetSupportTypeResponse:
+    return GetSupportTypeResponse(support_type=_predict_support_type_label(req))
