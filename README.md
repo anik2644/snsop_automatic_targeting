@@ -271,4 +271,5 @@ Legacy: if only `FEATURE_COLS` is present, it is copied to `feature_names`.
 | `ASSETS_PATH` | Full path to `support_type_model_assets.joblib` (overrides default search) |
 | `SUBGROUP_CLIP_MAX` | Per-column clip upper bound (default `10`) |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default `*`, allows any origin) |
+| `OPENAPI_SERVER_URL` | Server URL used by Swagger Try it out (default `http://localhost:8040`) |
 # snsop_automatic_targeting

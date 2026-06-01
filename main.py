@@ -366,7 +366,11 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Support type prediction", lifespan=lifespan)
+app = FastAPI(
+    title="Support type prediction",
+    lifespan=lifespan,
+    servers=[{"url": os.environ.get("OPENAPI_SERVER_URL", "http://localhost:8040")}],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
