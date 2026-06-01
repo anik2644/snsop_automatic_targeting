@@ -8,8 +8,7 @@ services:
     ports:
       - "8040:8040"
     environment:
-      CORS_ORIGINS: "*"
-      OPENAPI_SERVER_URL: "http://localhost:8040"
+      OPENAPI_SERVER_URL: "${OPENAPI_SERVER_URL:-http://localhost:8040}"
       SUBGROUP_CLIP_MAX: "10"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8040/health"]

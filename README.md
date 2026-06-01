@@ -156,6 +156,18 @@ The Compose service uses `restart: unless-stopped`, so Docker will keep the cont
 docker compose down
 ```
 
+For a VPS deployment, set the public URL used by Swagger before starting Compose:
+
+```bash
+OPENAPI_SERVER_URL=http://YOUR_VPS_IP:8040 docker compose up --build
+```
+
+If you use a domain with HTTPS, use that exact public URL instead:
+
+```bash
+OPENAPI_SERVER_URL=https://api.your-domain.com docker compose up --build
+```
+
 ## Run locally
 
 ### macOS/Linux
@@ -270,6 +282,5 @@ Legacy: if only `FEATURE_COLS` is present, it is copied to `feature_names`.
 |----------|---------|
 | `ASSETS_PATH` | Full path to `support_type_model_assets.joblib` (overrides default search) |
 | `SUBGROUP_CLIP_MAX` | Per-column clip upper bound (default `10`) |
-| `CORS_ORIGINS` | Comma-separated allowed origins (default `*`, allows any origin) |
 | `OPENAPI_SERVER_URL` | Server URL used by Swagger Try it out (default `http://localhost:8040`) |
 # snsop_automatic_targeting
