@@ -38,8 +38,3 @@ build/
 dist/
 *.egg-info/
 
-# Local model artifacts and large generated files
-*.joblib
-*.pkl
-*.pickle
-*.onnx
