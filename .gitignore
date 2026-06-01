@@ -1,0 +1,51 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and runtime files
+*.log
+*.pid
+
+# Build/package output
+build/
+dist/
+*.egg-info/
+
+# Local model artifacts and large generated files
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+models/*.joblib
+models/*.pkl
+models/*.pickle
+models/*.onnx
+!models/.gitkeep
+!models/README.md
