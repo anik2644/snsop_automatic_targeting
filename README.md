@@ -169,6 +169,46 @@ Response always returns the top three DIS selection reasons from `models/model_d
 
 Optional model path override: set `DIS_REASON_MODEL_PATH` to the full path of the XGBoost JSON model.
 
+**POST** `/get_dis_selection_reasons`
+
+Request body uses the same `household` shape as `/get_support_type` and `/get_selection_reasons`.
+
+Response returns all DIS reason percentages. `DIS_REASON_1`, `DIS_REASON_2`, `DIS_REASON_4`, and `DIS_REASON_5` come from the binary models in `models/multi_bi`. `DIS_REASON_3` has no binary model, so it is returned as `"100.00%"`.
+
+```json
+{
+  "selection_reasons": [
+    {
+      "selection_reason": "DIS_REASON_1",
+      "reason_text": "Child headed households with no alternate income support",
+      "probability_percent": "97.50%"
+    },
+    {
+      "selection_reason": "DIS_REASON_2",
+      "reason_text": "Elderly headed household lacking alternate income support and able bodied member",
+      "probability_percent": "82.35%"
+    },
+    {
+      "selection_reason": "DIS_REASON_3",
+      "reason_text": "Persons with disability headed household lacking alternate income support and able bodied member",
+      "probability_percent": "100.00%"
+    },
+    {
+      "selection_reason": "DIS_REASON_4",
+      "reason_text": "Chronically ill headed household lacking alternate income and able bodied member",
+      "probability_percent": "46.20%"
+    },
+    {
+      "selection_reason": "DIS_REASON_5",
+      "reason_text": "Female headed household lacking alternate income support and able-bodied member",
+      "probability_percent": "91.10%"
+    }
+  ]
+}
+```
+
+Optional binary model directory override: set `DIS_REASON_MULTI_BI_MODEL_DIR` to the directory containing `model_DIS_REASON_1_finetuned.json`, `model_DIS_REASON_2_finetuned.json`, `model_DIS_REASON_4_finetuned.json`, and `model_DIS_REASON_5_finetuned.json`.
+
 ## Run with Docker
 
 From the `backend` directory:

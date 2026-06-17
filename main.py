@@ -62,6 +62,13 @@ FEATURE_COLS: list[str] = RAW_MEMBER_COLS
 THRESHOLD_PER_SUBGROUP = 10
 
 DIS_REASON_MODEL_FILENAME = "model_dis_reason_retrained.json"
+DIS_REASON_MULTI_BI_MODEL_DIRNAME = "multi_bi"
+DIS_REASON_MULTI_BI_LABELS = [
+    "DIS_REASON_1",
+    "DIS_REASON_2",
+    "DIS_REASON_4",
+    "DIS_REASON_5",
+]
 DIS_REASON_CODES = {
     0: "DIS_REASON_1",
     1: "DIS_REASON_2",
@@ -236,6 +243,18 @@ class GetSelectionReasonsResponse(BaseModel):
     )
 
 
+class DisSelectionReasonPrediction(BaseModel):
+    selection_reason: str = Field(..., description="DIS reason code.")
+    reason_text: str = Field(..., description="Human-readable DIS reason.")
+    probability_percent: str = Field(..., description="Model probability formatted as a percentage.")
+
+
+class GetDisSelectionReasonsResponse(BaseModel):
+    selection_reasons: list[DisSelectionReasonPrediction] = Field(
+        ..., description="DIS selection reason probabilities from the binary models."
+    )
+
+
 def _col_index_map(cols: list[str]) -> dict[str, int]:
     return {c: i for i, c in enumerate(cols)}
 
@@ -306,6 +325,15 @@ def _candidate_dis_reason_model_paths() -> list[str]:
     ]
 
 
+def _candidate_dis_reason_multi_bi_model_dirs() -> list[str]:
+    """Default search order when DIS_REASON_MULTI_BI_MODEL_DIR is unset."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    return [
+        os.path.join(base, "models", DIS_REASON_MULTI_BI_MODEL_DIRNAME),
+        os.path.join(base, DIS_REASON_MULTI_BI_MODEL_DIRNAME),
+    ]
+
+
 def resolve_dis_reason_model_path() -> str:
     """
     Resolve path to the DIS reason XGBoost JSON model.
@@ -323,6 +351,24 @@ def resolve_dis_reason_model_path() -> str:
             return p
     paths = ", ".join(repr(p) for p in _candidate_dis_reason_model_paths())
     raise FileNotFoundError(f"Could not find {DIS_REASON_MODEL_FILENAME!r}. Checked: {paths}")
+
+
+def resolve_dis_reason_multi_bi_model_dir() -> str:
+    """
+    Resolve path to the four binary DIS reason XGBoost JSON models.
+
+    If DIS_REASON_MULTI_BI_MODEL_DIR is set, it must point to a directory.
+    """
+    env = os.environ.get("DIS_REASON_MULTI_BI_MODEL_DIR", "").strip()
+    if env:
+        if os.path.isdir(env):
+            return env
+        raise FileNotFoundError(f"DIS_REASON_MULTI_BI_MODEL_DIR points to a missing directory: {env!r}")
+    for p in _candidate_dis_reason_multi_bi_model_dirs():
+        if os.path.isdir(p):
+            return p
+    paths = ", ".join(repr(p) for p in _candidate_dis_reason_multi_bi_model_dirs())
+    raise FileNotFoundError(f"Could not find {DIS_REASON_MULTI_BI_MODEL_DIRNAME!r}. Checked: {paths}")
 
 
 def _validate_model_assets(data: dict[str, Any], path: str) -> dict[str, Any]:
@@ -436,15 +482,49 @@ def load_dis_reason_assets() -> dict[str, Any]:
     }
 
 
+def load_dis_reason_multi_bi_assets() -> dict[str, Any]:
+    model_dir = resolve_dis_reason_multi_bi_model_dir()
+    try:
+        from xgboost import XGBClassifier
+    except ModuleNotFoundError as e:
+        hint = (
+            "Could not load the binary DIS reason models because xgboost is not installed.\n"
+            "Install it in this virtualenv with: pip install -r requirements.txt"
+        )
+        raise RuntimeError(hint) from e
+
+    models: dict[str, Any] = {}
+    feature_names_by_label: dict[str, list[str]] = {}
+    for label in DIS_REASON_MULTI_BI_LABELS:
+        path = os.path.join(model_dir, f"model_{label}_finetuned.json")
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Missing binary DIS reason model for {label}: {path!r}")
+        model = XGBClassifier()
+        model.load_model(path)
+        feature_names = model.get_booster().feature_names
+        if not feature_names:
+            raise ValueError(f"Binary DIS reason model at {path!r} does not include feature names.")
+        models[label] = model
+        feature_names_by_label[label] = list(feature_names)
+
+    return {
+        "models": models,
+        "feature_names_by_label": feature_names_by_label,
+        "_loaded_from": model_dir,
+    }
+
+
 assets: dict[str, Any] = {}
 dis_reason_assets: dict[str, Any] = {}
+dis_reason_multi_bi_assets: dict[str, Any] = {}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global assets, dis_reason_assets
+    global assets, dis_reason_assets, dis_reason_multi_bi_assets
     assets = load_assets()
     dis_reason_assets = load_dis_reason_assets()
+    dis_reason_multi_bi_assets = load_dis_reason_multi_bi_assets()
     yield
 
 
@@ -573,6 +653,33 @@ def _predict_top_dis_reasons(req: GetSupportTypeRequest) -> list[SelectionReason
     return reasons
 
 
+def _format_probability_percent(probability: float) -> str:
+    return f"{probability * 100:.2f}%"
+
+
+def _predict_dis_selection_reasons(req: GetSupportTypeRequest) -> list[DisSelectionReasonPrediction]:
+    models: dict[str, Any] = dis_reason_multi_bi_assets["models"]
+    feature_names_by_label: dict[str, list[str]] = dis_reason_multi_bi_assets["feature_names_by_label"]
+
+    probabilities: dict[str, str] = {"DIS_REASON_3": "100.00%"}
+    for label in DIS_REASON_MULTI_BI_LABELS:
+        model = models[label]
+        feature_names = feature_names_by_label[label]
+        df = _household_dataframe_for_features(req, feature_names)
+        pred_proba = np.asarray(model.predict_proba(df)[0], dtype=np.float64)
+        prob_yes = float(pred_proba[1]) if pred_proba.size > 1 else float(pred_proba[0])
+        probabilities[label] = _format_probability_percent(prob_yes)
+
+    return [
+        DisSelectionReasonPrediction(
+            selection_reason=reason_code,
+            reason_text=DIS_REASON_TEXT[reason_code],
+            probability_percent=probabilities[reason_code],
+        )
+        for reason_code in DIS_REASON_TEXT
+    ]
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
@@ -582,6 +689,8 @@ def health() -> dict[str, Any]:
         "assets_source": assets.get("_loaded_from"),
         "dis_reason_features": len(dis_reason_assets.get("feature_names", [])),
         "dis_reason_assets_source": dis_reason_assets.get("_loaded_from"),
+        "dis_reason_multi_bi_models": list(dis_reason_multi_bi_assets.get("models", {}).keys()),
+        "dis_reason_multi_bi_assets_source": dis_reason_multi_bi_assets.get("_loaded_from"),
     }
 
 
@@ -624,3 +733,8 @@ def get_support_type(req: GetSupportTypeRequest) -> GetSupportTypeResponse:
 @app.post("/get_selection_reasons", response_model=GetSelectionReasonsResponse)
 def get_selection_reasons(req: GetSupportTypeRequest) -> GetSelectionReasonsResponse:
     return GetSelectionReasonsResponse(selection_reasons=_predict_top_dis_reasons(req))
+
+
+@app.post("/get_dis_selection_reasons", response_model=GetDisSelectionReasonsResponse)
+def get_dis_selection_reasons(req: GetSupportTypeRequest) -> GetDisSelectionReasonsResponse:
+    return GetDisSelectionReasonsResponse(selection_reasons=_predict_dis_selection_reasons(req))
