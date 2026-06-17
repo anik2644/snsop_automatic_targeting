@@ -61,6 +61,22 @@ FEATURE_COLS: list[str] = RAW_MEMBER_COLS
 # Default matches assembled_households[RAW_MEMBER_COLS].clip(0, THRESHOLD_PER_SUBGROUP)
 THRESHOLD_PER_SUBGROUP = 10
 
+DIS_REASON_MODEL_FILENAME = "model_dis_reason_retrained.json"
+DIS_REASON_CODES = {
+    0: "DIS_REASON_1",
+    1: "DIS_REASON_2",
+    2: "DIS_REASON_3",
+    3: "DIS_REASON_4",
+    4: "DIS_REASON_5",
+}
+DIS_REASON_TEXT = {
+    "DIS_REASON_1": "Child headed households with no alternate income support",
+    "DIS_REASON_2": "Elderly headed household lacking alternate income support and able bodied member",
+    "DIS_REASON_3": "Persons with disability headed household lacking alternate income support and able bodied member",
+    "DIS_REASON_4": "Chronically ill headed household lacking alternate income and able bodied member",
+    "DIS_REASON_5": "Female headed household lacking alternate income support and able-bodied member",
+}
+
 
 def _clip_upper() -> int:
     return int(os.environ.get("SUBGROUP_CLIP_MAX", str(THRESHOLD_PER_SUBGROUP)))
@@ -207,6 +223,19 @@ class GetSupportTypeResponse(BaseModel):
     support_type: str = Field(..., description="Predicted support type label.")
 
 
+class SelectionReasonPrediction(BaseModel):
+    selection_reason: str = Field(..., description="DIS reason code.")
+    reason_text: str = Field(..., description="Human-readable DIS reason.")
+    probability: float = Field(..., description="Model probability from 0 to 1.")
+    probability_percent: float = Field(..., description="Model probability as a percentage.")
+
+
+class GetSelectionReasonsResponse(BaseModel):
+    selection_reasons: list[SelectionReasonPrediction] = Field(
+        ..., description="Top three DIS selection reasons ordered by probability."
+    )
+
+
 def _col_index_map(cols: list[str]) -> dict[str, int]:
     return {c: i for i, c in enumerate(cols)}
 
@@ -266,6 +295,34 @@ def resolve_assets_path() -> str | None:
         if os.path.isfile(p):
             return p
     return None
+
+
+def _candidate_dis_reason_model_paths() -> list[str]:
+    """Default search order when DIS_REASON_MODEL_PATH is unset."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    return [
+        os.path.join(base, "models", DIS_REASON_MODEL_FILENAME),
+        os.path.join(base, DIS_REASON_MODEL_FILENAME),
+    ]
+
+
+def resolve_dis_reason_model_path() -> str:
+    """
+    Resolve path to the DIS reason XGBoost JSON model.
+
+    1. If DIS_REASON_MODEL_PATH is set and that file exists, use it.
+    2. Else first existing file among _candidate_dis_reason_model_paths().
+    """
+    env = os.environ.get("DIS_REASON_MODEL_PATH", "").strip()
+    if env:
+        if os.path.isfile(env):
+            return env
+        raise FileNotFoundError(f"DIS_REASON_MODEL_PATH points to a missing file: {env!r}")
+    for p in _candidate_dis_reason_model_paths():
+        if os.path.isfile(p):
+            return p
+    paths = ", ".join(repr(p) for p in _candidate_dis_reason_model_paths())
+    raise FileNotFoundError(f"Could not find {DIS_REASON_MODEL_FILENAME!r}. Checked: {paths}")
 
 
 def _validate_model_assets(data: dict[str, Any], path: str) -> dict[str, Any]:
@@ -356,13 +413,38 @@ def load_assets() -> dict[str, Any]:
     return data
 
 
+def load_dis_reason_assets() -> dict[str, Any]:
+    path = resolve_dis_reason_model_path()
+    try:
+        from xgboost import XGBClassifier
+    except ModuleNotFoundError as e:
+        hint = (
+            "Could not load the DIS reason model because xgboost is not installed.\n"
+            "Install it in this virtualenv with: pip install -r requirements.txt"
+        )
+        raise RuntimeError(hint) from e
+
+    model = XGBClassifier()
+    model.load_model(path)
+    feature_names = model.get_booster().feature_names
+    if not feature_names:
+        raise ValueError(f"DIS reason model at {path!r} does not include feature names.")
+    return {
+        "model": model,
+        "feature_names": list(feature_names),
+        "_loaded_from": path,
+    }
+
+
 assets: dict[str, Any] = {}
+dis_reason_assets: dict[str, Any] = {}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global assets
+    global assets, dis_reason_assets
     assets = load_assets()
+    dis_reason_assets = load_dis_reason_assets()
     yield
 
 
@@ -399,6 +481,19 @@ def _household_dataframe(req: HouseholdRequest | GetSupportTypeRequest) -> pd.Da
     new_df = new_df[names]
     cap = _clip_upper()
     new_df[names] = new_df[names].clip(lower=0, upper=cap)
+    return new_df
+
+
+def _household_dataframe_for_features(
+    req: HouseholdRequest | GetSupportTypeRequest,
+    feature_names: list[str],
+) -> pd.DataFrame:
+    h = _household_payload(req)
+    row = {k: int(h.get(k, 0) or 0) for k in feature_names}
+    new_df = pd.DataFrame([row])
+    new_df = new_df[feature_names]
+    cap = _clip_upper()
+    new_df[feature_names] = new_df[feature_names].clip(lower=0, upper=cap)
     return new_df
 
 
@@ -441,6 +536,43 @@ def _predict_support_type_label(req: HouseholdRequest | GetSupportTypeRequest) -
     return str(le.inverse_transform([pred_class])[0])
 
 
+def _dis_reason_code(class_label: Any) -> str:
+    try:
+        label_idx = int(class_label)
+    except (TypeError, ValueError):
+        label = str(class_label)
+        if label in DIS_REASON_TEXT:
+            return label
+        return label
+    return DIS_REASON_CODES.get(label_idx, f"DIS_REASON_{label_idx + 1}")
+
+
+def _predict_top_dis_reasons(req: GetSupportTypeRequest) -> list[SelectionReasonPrediction]:
+    model = dis_reason_assets["model"]
+    feature_names: list[str] = list(dis_reason_assets["feature_names"])
+    df = _household_dataframe_for_features(req, feature_names)
+    pred_proba = np.asarray(model.predict_proba(df)[0], dtype=np.float64)
+    classes = getattr(model, "classes_", None)
+    if classes is None:
+        classes = np.arange(len(pred_proba))
+
+    top_indices = np.argsort(pred_proba)[::-1][:3]
+    reasons: list[SelectionReasonPrediction] = []
+    for idx in top_indices:
+        class_label = classes[int(idx)] if len(classes) > int(idx) else int(idx)
+        reason_code = _dis_reason_code(class_label)
+        probability = float(pred_proba[int(idx)])
+        reasons.append(
+            SelectionReasonPrediction(
+                selection_reason=reason_code,
+                reason_text=DIS_REASON_TEXT.get(reason_code, reason_code),
+                probability=probability,
+                probability_percent=round(probability * 100, 2),
+            )
+        )
+    return reasons
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
@@ -448,6 +580,8 @@ def health() -> dict[str, Any]:
         "features": len(assets.get("feature_names", [])),
         "subgroup_clip_max": _clip_upper(),
         "assets_source": assets.get("_loaded_from"),
+        "dis_reason_features": len(dis_reason_assets.get("feature_names", [])),
+        "dis_reason_assets_source": dis_reason_assets.get("_loaded_from"),
     }
 
 
@@ -485,3 +619,8 @@ def predict_support_type(req: HouseholdRequest) -> SupportTypeResponse:
 @app.post("/get_support_type", response_model=GetSupportTypeResponse)
 def get_support_type(req: GetSupportTypeRequest) -> GetSupportTypeResponse:
     return GetSupportTypeResponse(support_type=_predict_support_type_label(req))
+
+
+@app.post("/get_selection_reasons", response_model=GetSelectionReasonsResponse)
+def get_selection_reasons(req: GetSupportTypeRequest) -> GetSelectionReasonsResponse:
+    return GetSelectionReasonsResponse(selection_reasons=_predict_top_dis_reasons(req))

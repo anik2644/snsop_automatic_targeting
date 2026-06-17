@@ -136,6 +136,39 @@ Response:
 }
 ```
 
+**POST** `/get_selection_reasons`
+
+Request body uses the same `household` shape as `/get_support_type`.
+
+Response always returns the top three DIS selection reasons from `models/model_dis_reason_retrained.json`, ordered by model probability:
+
+```json
+{
+  "selection_reasons": [
+    {
+      "selection_reason": "DIS_REASON_3",
+      "reason_text": "Persons with disability headed household lacking alternate income support and able bodied member",
+      "probability": 0.82,
+      "probability_percent": 82.0
+    },
+    {
+      "selection_reason": "DIS_REASON_2",
+      "reason_text": "Elderly headed household lacking alternate income support and able bodied member",
+      "probability": 0.11,
+      "probability_percent": 11.0
+    },
+    {
+      "selection_reason": "DIS_REASON_5",
+      "reason_text": "Female headed household lacking alternate income support and able-bodied member",
+      "probability": 0.04,
+      "probability_percent": 4.0
+    }
+  ]
+}
+```
+
+Optional model path override: set `DIS_REASON_MODEL_PATH` to the full path of the XGBoost JSON model.
+
 ## Run with Docker
 
 From the `backend` directory:
